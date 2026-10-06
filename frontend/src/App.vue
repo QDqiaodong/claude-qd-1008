@@ -7,10 +7,11 @@ import HoleView from './views/HoleView.vue'
 import TeeTimeView from './views/TeeTimeView.vue'
 import PlayerView from './views/PlayerView.vue'
 import TournamentView from './views/TournamentView.vue'
+import ScorecardView from './views/ScorecardView.vue'
 
 // ------------------------------------------------------------------
 // 导航形态：左侧 SVG 球场平面图。球洞 / 开球台 / 球员会馆 / 赛事中心
-// 是可点击热点，点击切换右侧业务模块（即改变 hash 路由）。
+// / 记分卡签核处 是可点击热点，点击切换右侧业务模块（即改变 hash 路由）。
 // 注意：main.js 未 app.use(router)，所以这里直接读 router.currentRoute.value。
 // ------------------------------------------------------------------
 
@@ -18,18 +19,20 @@ const viewMap = {
   '/holes': HoleView,
   '/teetime': TeeTimeView,
   '/players': PlayerView,
-  '/tournament': TournamentView
+  '/tournament': TournamentView,
+  '/scorecard': ScorecardView
 }
 
 const hotspots = [
-  { path: '/holes',      label: '球洞',     x: 70,  y: 92,  sub: '洞号·标准杆·码距' },
-  { path: '/teetime',    label: '开球台',   x: 158, y: 58,  sub: '预订·时段' },
-  { path: '/players',    label: '球员会馆', x: 242, y: 120, sub: '差点·名册' },
-  { path: '/tournament', label: '赛事中心', x: 150, y: 268, sub: '排行榜·成绩' }
+  { path: '/holes',      label: '球洞',       x: 70,  y: 92,  sub: '洞号·标准杆·码距' },
+  { path: '/teetime',    label: '开球台',     x: 158, y: 58,  sub: '预订·时段' },
+  { path: '/players',    label: '球员会馆',   x: 242, y: 120, sub: '差点·名册' },
+  { path: '/tournament', label: '赛事中心',   x: 150, y: 268, sub: '排行榜·成绩' },
+  { path: '/scorecard',  label: '记分卡签核', x: 250, y: 210, sub: '提交·确认·争议·收口' }
 ]
 
 const currentPath = ref(router.currentRoute.value.path)
-const counts = ref({ holes: 0, teetime: 0, players: 0, tournament: 0 })
+const counts = ref({ holes: 0, teetime: 0, players: 0, tournament: 0, scorecard: 0 })
 
 const currentView = computed(() => viewMap[currentPath.value] || HoleView)
 
@@ -38,8 +41,12 @@ async function loadCounts() {
     const [h, t, p, tour] = await Promise.all([
       api.listHoles(), api.listTeeTimes(), api.listPlayers(), api.listTournaments()
     ])
+    // 记分卡热点默认统计进行中赛事的卡片数；没有进行中赛事则为 0
+    const ongoing = tour.find(x => x.status === '进行中')
+    const cards = ongoing ? await api.listScorecards(ongoing.id) : []
     counts.value = {
-      holes: h.length, teetime: t.length, players: p.length, tournament: tour.length
+      holes: h.length, teetime: t.length, players: p.length,
+      tournament: tour.length, scorecard: cards.length
     }
   } catch (e) { /* 计数失败不影响主流程 */ }
 }
@@ -49,6 +56,7 @@ function countFor(path) {
   if (path === '/teetime') return counts.value.teetime
   if (path === '/players') return counts.value.players
   if (path === '/tournament') return counts.value.tournament
+  if (path === '/scorecard') return counts.value.scorecard
   return 0
 }
 
@@ -86,11 +94,11 @@ onMounted(async () => {
           <path d="M70 92 Q110 60 158 58 T242 120 Q210 200 150 268 Q90 220 70 92 Z"
                 fill="#bdeee4" stroke="#9fdccf" stroke-width="2" />
           <!-- 水障碍 -->
-          <ellipse cx="110" cy="200" rx="34" ry="20" fill="#aee0f2" stroke="#7fc9e6" stroke-width="1.5" />
-          <text x="110" y="204" font-size="9" fill="#2b7a9b" text-anchor="middle">水障碍</text>
+          <ellipse cx="105" cy="196" rx="30" ry="17" fill="#aee0f2" stroke="#7fc9e6" stroke-width="1.5" />
+          <text x="105" y="200" font-size="9" fill="#2b7a9b" text-anchor="middle">水障碍</text>
           <!-- 沙坑 -->
-          <circle cx="210" cy="200" r="16" fill="#f3e6c4" stroke="#e0cd9b" stroke-width="1.5" />
-          <text x="210" y="204" font-size="9" fill="#9c824a" text-anchor="middle">沙坑</text>
+          <circle cx="182" cy="208" r="14" fill="#f3e6c4" stroke="#e0cd9b" stroke-width="1.5" />
+          <text x="182" y="212" font-size="8" fill="#9c824a" text-anchor="middle">沙坑</text>
           <!-- 会所 -->
           <rect x="224" y="104" width="36" height="32" rx="4" fill="#fff" stroke="#00bfa5" stroke-width="1.5" />
           <text x="242" y="124" font-size="8" fill="#00897b" text-anchor="middle">会所</text>

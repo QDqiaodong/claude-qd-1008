@@ -2,12 +2,15 @@ import axios from 'axios'
 
 const http = axios.create({ baseURL: '/api', timeout: 20000 })
 
-// 后端统一返回 {ok, message, data}；HTTP 400 的业务异常也要把中文提示带出来
+// 后端统一返回 {ok, message, data}；HTTP 400 的业务异常也要把中文提示带出来。
+// 409 表示并发版本冲突：标记 isConflict，供页面弹「数据已变化」并强制刷新。
 http.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error?.response?.data?.message || error?.message || '请求失败'
-    return Promise.reject(new Error(message))
+    const e = new Error(message)
+    e.isConflict = error?.response?.status === 409
+    return Promise.reject(e)
   }
 )
 
@@ -58,5 +61,26 @@ export default {
 
   // ---------------- 成绩 ----------------
   listScores: (p) => call(http.get('/scores', params(p || {}))),
-  recordScore: (d) => call(http.post('/scores', d))
+  recordScore: (d) => call(http.post('/scores', d)),
+
+  // ---------------- 赛事参赛名单 ----------------
+  listEntries: (tournamentId) => call(http.get(`/tournaments/${tournamentId}/entries`)),
+  addEntry: (tournamentId, d) => call(http.post(`/tournaments/${tournamentId}/entries`, d)),
+
+  // ---------------- 记分卡签核闭环 ----------------
+  listScorecards: (tournamentId) => call(http.get('/scorecards', params({ tournamentId }))),
+  draftScorecard: (tournamentId, playerId, roundNo) =>
+    call(http.post('/scorecards/draft', null, params({ tournamentId, playerId, roundNo }))),
+  getScorecard: (id) => call(http.get(`/scorecards/${id}`)),
+  saveCardHole: (id, d) => call(http.post(`/scorecards/${id}/holes`, d)),
+  submitScorecard: (id, d) => call(http.post(`/scorecards/${id}/submit`, d)),
+  confirmScorecard: (id, d) => call(http.post(`/scorecards/${id}/confirm`, d)),
+  disputeScorecard: (id, d) => call(http.post(`/scorecards/${id}/dispute`, d)),
+  myScorecards: (playerId) => call(http.get('/scorecards/mine', params({ playerId }))),
+  disputedScorecards: (tournamentId) =>
+    call(http.get('/scorecards/disputed', params(tournamentId ? { tournamentId } : {}))),
+  ruleScorecard: (id, d) => call(http.post(`/scorecards/${id}/rule`, d)),
+  scorecardEvents: (id) => call(http.get(`/scorecards/${id}/events`)),
+  officialResults: (tournamentId) => call(http.get('/scorecards/official', params({ tournamentId }))),
+  signoffCheck: (tournamentId) => call(http.get('/scorecards/signoff-check', params({ tournamentId })))
 }

@@ -34,6 +34,23 @@ public final class Dict {
     /** 单洞最少杆数（一杆起） */
     public static final int MIN_STROKES = 1;
 
+    // ---------------- 记分卡签核闭环 ----------------
+    /** 记分卡状态：草稿 → 待球员确认 → 争议中 →（回到待球员确认）→ 已签核 */
+    public static final String CARD_DRAFT = "草稿";
+    public static final String CARD_PENDING = "待球员确认";
+    public static final String CARD_DISPUTED = "争议中";
+    public static final String CARD_SIGNED = "已签核";
+
+    public static final List<String> SCORECARD_STATUSES =
+            List.of(CARD_DRAFT, CARD_PENDING, CARD_DISPUTED, CARD_SIGNED);
+
+    /** 流转事件动作 */
+    public static final String ACTION_SUBMIT = "提交";
+    public static final String ACTION_CONFIRM = "确认";
+    public static final String ACTION_DISPUTE = "争议";
+    public static final String ACTION_UPHOLD = "维持";
+    public static final String ACTION_ADJUST = "修正";
+
     // ---------------- 取值方法 ----------------
 
     public static boolean isValidHoleStatus(String status) {
