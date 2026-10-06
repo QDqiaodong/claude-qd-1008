@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import api from '../api'
+import ScorecardApprovalView from './ScorecardApprovalView.vue'
 
 const tournaments = ref([])
 const players = ref([])
@@ -20,8 +21,9 @@ const tourDialog = ref(false)
 const savingTour = ref(false)
 const tourForm = ref(blankTour())
 function blankTour() {
-  return { tournamentNo: '', name: '', startDate: '2026-10-10', endDate: '2026-10-12', status: '报名中', location: '', note: '' }
+  return { tournamentNo: '', name: '', startDate: '2026-10-10', endDate: '2026-10-12', status: '报名中', totalRounds: 1, location: '', note: '' }
 }
+const selectedTournament = computed(() => tournaments.value.find(t => t.id === selectedTourId.value) || null)
 
 // ---- 排行榜 ----
 const lbDialog = ref(false)
@@ -75,7 +77,18 @@ async function saveTour() {
 }
 async function advance(t, target) {
   error.value = ''; tip.value = ''
-  try { await api.advanceTournament(t.id, target); tip.value = `赛事已推进至「${target}」`; await loadTournaments() }
+  try {
+    if (target === '已结束') {
+      const check = await api.closeCheck(t.id)
+      if (!check.canClose) {
+        error.value = '不能收口：' + check.reasons.join('；')
+        return
+      }
+    }
+    await api.advanceTournament(t.id, target)
+    tip.value = `赛事已推进至「${target}」`
+    await loadTournaments()
+  }
   catch (e) { error.value = e.message }
 }
 
@@ -155,6 +168,7 @@ onMounted(loadAll)
                 <el-tag :type="row.status === '报名中' ? 'info' : row.status === '进行中' ? 'warning' : 'success'">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column prop="totalRounds" label="总轮次" width="85" />
             <el-table-column prop="location" label="地点" width="120" />
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
@@ -164,6 +178,17 @@ onMounted(loadAll)
             </el-table-column>
           </el-table>
         </div>
+      </el-tab-pane>
+
+      <!-- ============ 记分卡签核闭环 ============ -->
+      <el-tab-pane label="记分签核" name="scorecard">
+        <ScorecardApprovalView
+          :tournament-id="selectedTourId"
+          :selected-tournament="selectedTournament"
+          :players="players"
+          :holes="holes"
+          @changed="loadTournaments"
+        />
       </el-tab-pane>
 
       <!-- ============ 排行榜（乐观锁演示） ============ -->
@@ -233,6 +258,7 @@ onMounted(loadAll)
         <el-form-item label="名称"><el-input v-model="tourForm.name" /></el-form-item>
         <el-form-item label="开始日期"><el-date-picker v-model="tourForm.startDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
         <el-form-item label="结束日期"><el-date-picker v-model="tourForm.endDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
+        <el-form-item label="总轮次"><el-input-number v-model="tourForm.totalRounds" :min="1" :max="4" /></el-form-item>
         <el-form-item label="地点"><el-input v-model="tourForm.location" /></el-form-item>
         <el-form-item label="备注" class="full"><el-input v-model="tourForm.note" /></el-form-item>
       </el-form>

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.golf.course.common.ApiResponse;
+import com.golf.course.dto.CloseCheckView;
 import com.golf.course.entity.Tournament;
 import com.golf.course.service.TournamentService;
 
@@ -40,7 +41,12 @@ public class TournamentController {
         return ApiResponse.success("赛事已创建", tournamentService.create(input));
     }
 
-    /** 状态推进：报名中 → 进行中 → 已结束 */
+    @GetMapping("/{id}/close-check")
+    public ApiResponse<CloseCheckView> closeCheck(@PathVariable Long id) {
+        return ApiResponse.success(tournamentService.checkCanClose(id));
+    }
+
+    /** 状态推进：报名中 → 进行中 → 已结束；结束前必须全部记分卡签核 */
     @PostMapping("/{id}/advance")
     public ApiResponse<Tournament> advance(@PathVariable Long id, @RequestParam String target) {
         return ApiResponse.success("赛事状态已推进", tournamentService.advance(id, target));

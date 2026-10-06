@@ -2,12 +2,16 @@ import axios from 'axios'
 
 const http = axios.create({ baseURL: '/api', timeout: 20000 })
 
-// 后端统一返回 {ok, message, data}；HTTP 400 的业务异常也要把中文提示带出来
+// 后端统一返回 {ok, message, data}；409 时 data 为当前记分卡，交给页面提示并刷新状态
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error?.response?.data?.message || error?.message || '请求失败'
-    return Promise.reject(new Error(message))
+    const body = error?.response?.data
+    const message = body?.message || error?.message || '请求失败'
+    const wrapped = new Error(message)
+    wrapped.status = error?.response?.status
+    wrapped.data = body?.data
+    return Promise.reject(wrapped)
   }
 )
 
@@ -48,6 +52,8 @@ export default {
   getTournament: (id) => call(http.get(`/tournaments/${id}`)),
   createTournament: (d) => call(http.post('/tournaments', d)),
   advanceTournament: (id, target) => call(http.post(`/tournaments/${id}/advance`, null, params({ target }))),
+  closeCheck: (id) => call(http.get(`/tournaments/${id}/close-check`)),
+  officialLeaderboard: (id) => call(http.get(`/tournaments/${id}/official-leaderboard`)),
 
   // ---------------- 排行榜（乐观锁演示） ----------------
   listLeaderboards: (p) => call(http.get('/leaderboards', params(p || {}))),
@@ -58,5 +64,15 @@ export default {
 
   // ---------------- 成绩 ----------------
   listScores: (p) => call(http.get('/scores', params(p || {}))),
-  recordScore: (d) => call(http.post('/scores', d))
+  recordScore: (d) => call(http.post('/scores', d)),
+
+  // ---------------- 赛事记分卡签核 ----------------
+  listScorecards: (p) => call(http.get('/scorecards', params(p || {}))),
+  getScorecard: (id, p) => call(http.get(`/scorecards/${id}`, params(p || {}))),
+  scorecardHistory: (id, p) => call(http.get(`/scorecards/${id}/history`, params(p || {}))),
+  saveScorecardDraft: (d) => call(http.post('/scorecards/draft', d)),
+  submitScorecard: (id, d) => call(http.post(`/scorecards/${id}/submit`, d)),
+  confirmScorecard: (id, playerId, d) => call(http.post(`/scorecards/${id}/confirm`, d, { params: { playerId } })),
+  disputeScorecard: (id, playerId, d) => call(http.post(`/scorecards/${id}/dispute`, d, { params: { playerId } })),
+  ruleScorecard: (id, d) => call(http.post(`/scorecards/${id}/rule`, d))
 }

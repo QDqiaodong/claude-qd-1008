@@ -15,6 +15,11 @@ CREATE DATABASE IF NOT EXISTS golf_course
 USE golf_course;
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS scorecard_version_hole;
+DROP TABLE IF EXISTS scorecard_version;
+DROP TABLE IF EXISTS scorecard_hole;
+DROP TABLE IF EXISTS scorecard;
+DROP TABLE IF EXISTS tournament_entry;
 DROP TABLE IF EXISTS score;
 DROP TABLE IF EXISTS leaderboard;
 DROP TABLE IF EXISTS tee_time;
@@ -68,6 +73,7 @@ CREATE TABLE tournament (
     start_date DATE,
     end_date DATE,
     status VARCHAR(16) NOT NULL,
+    total_rounds INT NOT NULL DEFAULT 1,
     location VARCHAR(48),
     note VARCHAR(64),
     created_at DATETIME
@@ -94,6 +100,86 @@ CREATE TABLE score (
     round_no INT NOT NULL,
     strokes INT NOT NULL,
     created_at DATETIME
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------- 赛事参赛名单 ----------------
+-- 收口检查以该名单为准：每名参赛球员的每个应打轮次都必须有「已签核」记分卡
+CREATE TABLE tournament_entry (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tournament_id BIGINT NOT NULL,
+    player_id BIGINT NOT NULL,
+    created_at DATETIME,
+    UNIQUE KEY uk_tournament_player (tournament_id, player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------- 赛事记分卡签核 ----------------
+-- 状态：草稿 / 待球员确认 / 争议中 / 已签核；version 为页面与 JPA 共用乐观版本
+CREATE TABLE scorecard (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tournament_id BIGINT NOT NULL,
+    player_id BIGINT NOT NULL,
+    round_no INT NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    submitted_by VARCHAR(48),
+    submitted_at DATETIME,
+    confirmed_by VARCHAR(48),
+    confirmed_at DATETIME,
+    last_action VARCHAR(32),
+    updated_at DATETIME,
+    created_at DATETIME,
+    UNIQUE KEY uk_scorecard_round (tournament_id, player_id, round_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 当前逐洞数据；洞 ID 与洞号均唯一，从数据库层阻断重复洞号
+CREATE TABLE scorecard_hole (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scorecard_id BIGINT NOT NULL,
+    hole_id BIGINT NOT NULL,
+    hole_no INT NOT NULL,
+    par INT NOT NULL,
+    strokes INT,
+    proposed_strokes INT,
+    dispute_reason VARCHAR(255),
+    disputed_by VARCHAR(48),
+    disputed_at DATETIME,
+    ruling_decision VARCHAR(16),
+    ruling_note VARCHAR(255),
+    ruled_by VARCHAR(48),
+    ruled_at DATETIME,
+    UNIQUE KEY uk_scorecard_hole (scorecard_id, hole_id),
+    UNIQUE KEY uk_scorecard_hole_no (scorecard_id, hole_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 不可变快照主表：每次提交/确认/争议/裁决各存 BEFORE、AFTER 两条
+CREATE TABLE scorecard_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scorecard_id BIGINT NOT NULL,
+    card_version BIGINT NOT NULL,
+    snapshot_type VARCHAR(16) NOT NULL,
+    action VARCHAR(32) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    actor_role VARCHAR(16),
+    actor_name VARCHAR(48),
+    note VARCHAR(255),
+    created_at DATETIME NOT NULL,
+    KEY idx_scorecard_version_card (scorecard_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 不可变快照逐洞明细
+CREATE TABLE scorecard_version_hole (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    version_id BIGINT NOT NULL,
+    hole_no INT NOT NULL,
+    par INT NOT NULL,
+    strokes INT,
+    proposed_strokes INT,
+    dispute_reason VARCHAR(255),
+    disputed_by VARCHAR(48),
+    ruling_decision VARCHAR(16),
+    ruling_note VARCHAR(255),
+    ruled_by VARCHAR(48),
+    KEY idx_version_hole_version (version_id, hole_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================================
@@ -135,9 +221,14 @@ INSERT INTO tee_time (id, play_date, player_id, slot, status, note, created_at) 
 (9,  '2026-10-03', 9,  '10:10', '可订', '待拼场',         UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 4 DAY),
 (10, '2026-10-03', 10, '15:00', '已订', '新人练习',       UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 4 DAY);
 
-INSERT INTO tournament (id, tournament_no, name, start_date, end_date, status, location, note, created_at) VALUES
-(1, 'T-2026-001', '金秋会员邀请赛', '2026-10-10', '2026-10-12', '报名中', 'A场主球场', '9 洞比杆赛',   UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 30 DAY),
-(2, 'T-2026-002', '青少年高尔夫训练营', '2026-11-01', '2026-11-03', '报名中', '练习场', '低差点组',     UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 28 DAY);
+INSERT INTO tournament (id, tournament_no, name, start_date, end_date, status, total_rounds, location, note, created_at) VALUES
+(1, 'T-2026-001', '金秋会员邀请赛', '2026-10-04', '2026-10-05', '进行中', 1, 'A场主球场', '9 洞比杆赛', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 30 DAY),
+(2, 'T-2026-002', '青少年高尔夫训练营', '2026-11-01', '2026-11-03', '报名中', 1, '练习场', '低差点组', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 28 DAY);
+
+INSERT INTO tournament_entry (id, tournament_id, player_id, created_at) VALUES
+(1, 1, 1, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 20 DAY),
+(2, 1, 3, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 20 DAY),
+(3, 1, 5, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 20 DAY);
 
 INSERT INTO leaderboard (id, tournament_id, round_no, leader_name, total_score, version, updated_at) VALUES
 (1, 1, 1, '王启明', 33, 0, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 2 DAY),

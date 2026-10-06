@@ -15,6 +15,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     /**
+     * 乐观版本冲突：409 + 当前状态，页面必须刷新后再操作
+     */
+    @ExceptionHandler(StaleVersionException.class)
+    public ResponseEntity<ApiResponse<Object>> handleStale(StaleVersionException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiResponse<>(false, e.getMessage(), e.getCurrent()));
+    }
+
+    /**
      * 业务校验失败：400 + 中文业务提示
      */
     @ExceptionHandler(BizException.class)

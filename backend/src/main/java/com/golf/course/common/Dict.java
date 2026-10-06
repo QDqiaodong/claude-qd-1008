@@ -34,6 +34,26 @@ public final class Dict {
     /** 单洞最少杆数（一杆起） */
     public static final int MIN_STROKES = 1;
 
+    // ---------------- 记分卡签核 ----------------
+    public static final String ROLE_SCOREKEEPER = "记分员";
+    public static final String ROLE_PLAYER = "球员";
+    public static final String ROLE_REFEREE = "裁判";
+    public static final List<String> SCORECARD_ROLES = List.of(ROLE_SCOREKEEPER, ROLE_PLAYER, ROLE_REFEREE);
+
+    public static final String SCORECARD_DRAFT = "草稿";
+    public static final String SCORECARD_PENDING = "待球员确认";
+    public static final String SCORECARD_DISPUTED = "争议中";
+    public static final String SCORECARD_CONFIRMED = "已签核";
+
+    public static final String RULING_UPHOLD = "维持";
+    public static final String RULING_CORRECT = "修正";
+
+    /** 单场赛事常规轮次上限（4 轮） */
+    public static final int MAX_ROUNDS = 4;
+
+    /** 争议/裁决理由的数据库长度上限 */
+    public static final int SCORECARD_NOTE_MAX = 255;
+
     // ---------------- 取值方法 ----------------
 
     public static boolean isValidHoleStatus(String status) {
@@ -58,4 +78,17 @@ public final class Dict {
         int i = TOURNAMENT_FLOW.indexOf(from);
         return i >= 0 && i + 1 < TOURNAMENT_FLOW.size() && TOURNAMENT_FLOW.get(i + 1).equals(to);
     }
+
+    public static boolean isValidScorecardRole(String role) {
+        return role != null && SCORECARD_ROLES.contains(role);
+    }
+
+    public static boolean isOfficialScorecardStatus(String status) {
+        return SCORECARD_CONFIRMED.equals(status);
+    }
+
+    public static boolean isValidRulingDecision(String decision) {
+        return RULING_UPHOLD.equals(decision) || RULING_CORRECT.equals(decision);
+    }
+
 }

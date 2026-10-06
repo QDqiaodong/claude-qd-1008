@@ -45,6 +45,10 @@ public class Tournament {
     @Column(name = "status", nullable = false, length = 16)
     private String status;
 
+    /** 赛事应打轮次，结束前每名参赛球员的每一轮都必须签核 */
+    @Column(name = "total_rounds", nullable = false)
+    private Integer totalRounds = 1;
+
     @Column(name = "location", length = 48)
     private String location;
 
